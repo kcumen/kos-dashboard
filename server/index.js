@@ -48,8 +48,13 @@ app.get('/api/products', (req, res) => {
       if (fs.existsSync(assetFile)) {
         try { asset = JSON.parse(fs.readFileSync(assetFile, 'utf8')); } catch {}
       }
+      asset.id = p.id;
+      asset._path = assetPath;
       const readme = path.join(assetPath, 'README.md');
       asset.hasReadme = fs.existsSync(readme);
+      if (asset.hasReadme) {
+        try { asset.readmeContent = fs.readFileSync(readme, 'utf8'); } catch {}
+      }
       return asset;
     });
     res.json(result);
@@ -61,6 +66,7 @@ app.get('/api/products', (req, res) => {
 // ── API: Inbox ───────────────────────────────────────────────────────────────
 app.get('/api/inbox', (req, res) => {
   try {
+    const { product } = req.query;
     const inboxDir = path.join(KOS_DIR, '00-inbox');
     const items = [];
     if (!fs.existsSync(inboxDir)) return res.json([]);
@@ -69,13 +75,17 @@ app.get('/api/inbox', (req, res) => {
       const content = fs.readFileSync(filePath, 'utf8');
       const fm = parseFrontmatter(content);
       const titleMatch = content.match(/^#\s+(.+)$/m);
+      const itemProduct = fm.product || null;
+      // Filter by product if specified
+      if (product && product !== 'global' && itemProduct !== product) return;
       items.push({
         file: f,
         filePath,
         title: titleMatch ? titleMatch[1].trim() : f,
         status: fm.status || 'pending',
         date: fm.date || f.slice(0, 8),
-        content
+        content,
+        product: itemProduct
       });
     });
     res.json(items);
@@ -87,21 +97,31 @@ app.get('/api/inbox', (req, res) => {
 // ── API: Backlog ─────────────────────────────────────────────────────────────
 app.get('/api/backlog', (req, res) => {
   try {
+    const { product } = req.query;
     const tasks = [];
-    const searchDirs = [
-      path.join(KOS_DIR, '01-backlog'),
-      ...getDirectories(path.join(KOS_DIR, '02-products')).map(d =>
-        path.join(KOS_DIR, '02-products', d, '01-backlog')
-      )
-    ];
+    let searchDirs = [];
+
+    if (product && product !== 'global') {
+      // Product-internal backlog only
+      searchDirs.push(path.join(KOS_DIR, '02-products', product, '01-backlog'));
+    } else {
+      // Global: system backlog + all product backlogs
+      searchDirs.push(path.join(KOS_DIR, '01-backlog'));
+      getDirectories(path.join(KOS_DIR, '02-products')).forEach(d =>
+        searchDirs.push(path.join(KOS_DIR, '02-products', d, '01-backlog'))
+      );
+    }
+
     searchDirs.forEach(dir => {
       if (!fs.existsSync(dir)) return;
       fs.readdirSync(dir).filter(f => f.startsWith('TASK-') && f.endsWith('.md')).forEach(f => {
-        const content = fs.readFileSync(path.join(dir, f), 'utf8');
+        const filePath = path.join(dir, f);
+        const content = fs.readFileSync(filePath, 'utf8');
         const fm = parseFrontmatter(content);
         const titleMatch = content.match(/^#\s+(.+)$/m);
         tasks.push({
           file: f,
+          filePath,
           title: titleMatch ? titleMatch[1].trim() : f,
           status: fm.status || 'todo',
           type: fm.type || 'feature',
@@ -120,11 +140,13 @@ app.get('/api/backlog', (req, res) => {
 // ── API: Plans ────────────────────────────────────────────────────────────────
 app.get('/api/plans', (req, res) => {
   try {
+    const { product } = req.query;
     const plans = [];
     const productsDir = path.join(KOS_DIR, '02-products');
     if (!fs.existsSync(productsDir)) return res.json([]);
-    getDirectories(productsDir).forEach(product => {
-      const plansDir = path.join(productsDir, product, '03-engineering', 'plans');
+    getDirectories(productsDir).forEach(p => {
+      if (product && product !== 'global' && p !== product) return;
+      const plansDir = path.join(productsDir, p, '03-engineering', 'plans');
       if (!fs.existsSync(plansDir)) return;
       fs.readdirSync(plansDir).filter(f => f.startsWith('PLAN-') && f.endsWith('.md')).forEach(f => {
         const filePath = path.join(plansDir, f);
@@ -135,7 +157,7 @@ app.get('/api/plans', (req, res) => {
           file: f,
           filePath,
           title: titleMatch ? titleMatch[1].trim() : f,
-          product,
+          product: p,
           status: fm.status || 'draft',
           date: fm.date || f.slice(5, 13),
           content

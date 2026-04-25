@@ -37,23 +37,25 @@ function TaskModal({ task }) {
   )
 }
 
-export default function BacklogView({ onOpen }) {
+export default function BacklogView({ onOpen, product }) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/backlog')
+    setLoading(true)
+    const url = product ? `/api/backlog?product=${product}` : '/api/backlog'
+    fetch(url)
       .then(r => r.json())
       .then(data => { setTasks(data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }, [product])
 
   if (loading) return <div className="loading">Loading...</div>
 
   const cols = [
-    { key: 'todo', label: '📋 Todo', color: 'var(--blue)' },
+    { key: 'todo',  label: '📋 Todo',  color: 'var(--blue)' },
     { key: 'doing', label: '⚡ Doing', color: 'var(--yellow)' },
-    { key: 'done', label: '✅ Done', color: 'var(--green)' }
+    { key: 'done',  label: '✅ Done',  color: 'var(--green)' }
   ]
 
   return (

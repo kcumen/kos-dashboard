@@ -1,20 +1,22 @@
-import { useState, useEffect } from 'react';
-import MarkdownContent from '../components/MarkdownContent';
+import { useState, useEffect } from 'react'
+import MarkdownContent from '../components/MarkdownContent.jsx'
 
 const STATUS_LABELS = {
-  draft: '📝 Draft',
+  draft:     '📝 Draft',
   'in-review': '👀 In Review',
-  approved: '✅ Approved',
-  rejected: '❌ Rejected'
+  approved:  '✅ Approved',
+  rejected:  '❌ Rejected'
 }
 
 function PlanModal({ plan }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(false)
 
   return (
     <>
       <div className="modal-meta">
-        <span className={`plan-status ${plan.status}`} style={{ fontSize: 11 }}>{STATUS_LABELS[plan.status] || plan.status}</span>
+        <span className={`plan-status ${plan.status}`} style={{ fontSize: 11 }}>
+          {STATUS_LABELS[plan.status] || plan.status}
+        </span>
         <button
           className="btn-ghost"
           style={{ marginLeft: 'auto', fontSize: 12 }}
@@ -46,16 +48,18 @@ function PlanModal({ plan }) {
   )
 }
 
-export default function PlansView({ onOpen }) {
+export default function PlansView({ onOpen, product }) {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/plans')
+    setLoading(true)
+    const url = product ? `/api/plans?product=${product}` : '/api/plans'
+    fetch(url)
       .then(r => r.json())
       .then(data => { setPlans(data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }, [product])
 
   if (loading) return <div className="loading">Loading...</div>
   if (!plans.length) return <div className="empty">No plans yet</div>
@@ -68,12 +72,12 @@ export default function PlansView({ onOpen }) {
           className="card plan-card"
           style={{ cursor: 'pointer' }}
           onClick={() => onOpen({
-              props: {
-                title: plan.title,
-                subtitle: `${plan.product} · ${plan.date}`,
-                children: <PlanModal plan={plan} />
-              }
-            })}
+            props: {
+              title: plan.title,
+              subtitle: `${plan.product} · ${plan.date}`,
+              children: <PlanModal plan={plan} />
+            }
+          })}
         >
           <span className={`plan-status ${plan.status}`}>{STATUS_LABELS[plan.status] || plan.status}</span>
           <div style={{ flex: 1 }}>

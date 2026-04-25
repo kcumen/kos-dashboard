@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import MarkdownContent from '../components/MarkdownContent';
+import { useState, useEffect } from 'react'
+import MarkdownContent from '../components/MarkdownContent.jsx'
 
 function InboxModal({ item }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(false)
 
   return (
     <>
@@ -17,6 +17,10 @@ function InboxModal({ item }) {
         </button>
       </div>
       <hr className="modal-divider" />
+      <div className="modal-row">
+        <span className="modal-row-label">Product</span>
+        <span className="modal-row-value">{item.product || '—'}</span>
+      </div>
       <div className="modal-row">
         <span className="modal-row-label">File</span>
         <span className="modal-row-value" style={{ fontFamily: 'monospace', fontSize: 11 }}>{item.file}</span>
@@ -35,16 +39,18 @@ function InboxModal({ item }) {
   )
 }
 
-export default function InboxView({ onOpen }) {
+export default function InboxView({ onOpen, product }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/inbox')
+    setLoading(true)
+    const url = product ? `/api/inbox?product=${product}` : '/api/inbox'
+    fetch(url)
       .then(r => r.json())
       .then(data => { setItems(data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }, [product])
 
   if (loading) return <div className="loading">Loading...</div>
   if (!items.length) return <div className="empty">Inbox clean ✓</div>
@@ -57,12 +63,12 @@ export default function InboxView({ onOpen }) {
           className="card inbox-item"
           style={{ cursor: 'pointer' }}
           onClick={() => onOpen({
-              props: {
-                title: item.title,
-                subtitle: item.file,
-                children: <InboxModal item={item} />
-              }
-            })}
+            props: {
+              title: item.title,
+              subtitle: item.file,
+              children: <InboxModal item={item} />
+            }
+          })}
         >
           <span className="status-pending">● {item.status}</span>
           <div className="inbox-title">{item.title}</div>
